@@ -712,16 +712,15 @@ void compare_ODE113_algorithm_with_segments(const std::string& algorithm_name,
               << y0[0] << ", " << y0[1] << ", " << y0[2] << "\n";
 }
 
-
 int main() {
     // Initial conditions
     std::vector<double> r0 = {-19946.988367, 11684.423264, 43511.217135};  // Initial position vector
     std::vector<double> v0 = {-0.803367, -1.762325, 0.200044};  // Initial velocity vector
 
     // Define parameters for ODE113
-    double tol = 1e-6;   // Tolerance
-    double hmax = 1.0;   // Maximum step size
-    double hmin = 1e-6;  // Minimum step size
+    double tol = 1e-16;   // Tolerance
+    double hmax = 0.01;   // Maximum step size
+    double hmin = 1e-10;  // Minimum step size
     double mu = 398600;  // Gravitational parameter for Earth
     double total_time = 1000000.0;  // Total simulation time in seconds
 
@@ -753,8 +752,8 @@ int main() {
     // Timer for ODE45 with segments
     start = std::chrono::high_resolution_clock::now();
     const double MU = 398600;    // Gravitational parameter
-    const double RTOL = 1e-6;    // Relative tolerance
-    const double ATOL = 1e-6;    // Absolute tolerance
+    const double RTOL = 1e-16;    // Relative tolerance
+    const double ATOL = 1e-16;    // Absolute tolerance
     compare_ODE45_algorithm_with_segments("ODE45", ode45, r0, v0, total_time, MU, RTOL, ATOL);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
