@@ -4,6 +4,8 @@
 
 #include <vector>
 #include <cmath>
+#include <string> // Include this to use std::string
+#include <tuple>  // Include this to use std::tuple
 
 const double mu = 398600.0;  // Standard gravitational parameter for Earth
 
@@ -50,5 +52,14 @@ double vector_norm(const std::vector<double>& vec);
 
 // Helper function to perform element-wise vector addition
 std::vector<double> vector_add(const std::vector<double>& v1, const std::vector<double>& v2);
+
+// Atmospheric density
+double atmospheric_density(double altitude);
+
+// Advanced satellite dynamics model
+std::vector<double> a_c_func(double t, const std::vector<double>& y, double A, double m, double C_D = 2.2);
+
+// Satellite parameter retrieval
+std::tuple<double, double, double> get_satellite_params(const std::string& sat_name);
 
 #endif // SATELLITE_UTILS_H

@@ -25,7 +25,6 @@ const int NUM_SEGMENTS = 16;
 const int NUM_GAUSS_LOBATTO_POINTS = 32;  // Number of points per segment, can be adjusted
 
 
-// Function to save results to CSV file
 void save_results_to_csv(const std::string& satellite_name, const std::string& algorithm_name,
                          const std::vector<double>& time_points, const std::vector<double>& position_differences) {
     std::string directory = "results";
@@ -37,7 +36,8 @@ void save_results_to_csv(const std::string& satellite_name, const std::string& a
     if (file.is_open()) {
         file << "Time (s), Error (km)\n";
         for (size_t i = 0; i < time_points.size(); ++i) {
-            file << time_points[i] << "," << position_differences[i] << "\n";
+            file << std::fixed << std::setprecision(13)
+                 << time_points[i] << "," << position_differences[i] << "\n";
         }
         std::cout << "Results saved to " << filename << std::endl;
     } else {
@@ -60,7 +60,9 @@ void save_final_positions_to_csv(const std::string& satellite_name, const std::s
     if (file.is_open()) {
         file << "Time (s), X (km), Y (km), Z (km)\n";
         for (size_t i = 0; i < time_points.size(); ++i) {
-            file << time_points[i] << "," << positions[i][0] << "," << positions[i][1] << "," << positions[i][2] << "\n";
+            file << std::fixed << std::setprecision(13)
+                 << time_points[i] << "," << positions[i][0] << ","
+                 << positions[i][1] << "," << positions[i][2] << "\n";
         }
         std::cout << "Final positions saved to " << filename << std::endl;
     } else {
@@ -559,7 +561,7 @@ void compare_ODE45_algorithm_with_segments(const std::string& algorithm_name,
 }
 
 
-void compare_ODE78_algorithm_with_segments(double total_time1) {
+void compare_ODE78_algorithm_with_segments(double total_time1,std::vector<double> r0,std::vector<double> v0) {
     if (std::isnan(total_time1)) {  // Check if total_time1 is NaN
         std::cerr << "Error: total_time1 is NaN." << std::endl;
         return;
@@ -575,9 +577,7 @@ void compare_ODE78_algorithm_with_segments(double total_time1) {
     double hmax = 0.01;
     double hmin = 1e-10;
 
-    // Initial position and velocity vectors
-    std::vector<double> r0 = {-19946.988367, 11684.423264, 43511.217135};  // Initial position
-    std::vector<double> v0 = {-0.803367, -1.762325, 0.200044};             // Initial velocity
+
     std::vector<double> y0 = r0;
     y0.insert(y0.end(), v0.begin(), v0.end());
 
@@ -586,7 +586,7 @@ void compare_ODE78_algorithm_with_segments(double total_time1) {
     std::vector<std::vector<double>> final_positions;
     std::vector<double> execution_times;
 
-    // Convert `c` from map<int, double> to vector<double>
+    // Convert c from map<int, double> to vector<double>
     std::vector<double> c_vector(c.size());
     for (const auto& pair : c) {
         c_vector[pair.first - 1] = pair.second;  // Convert map to vector, adjusting index
@@ -624,7 +624,7 @@ void compare_ODE78_algorithm_with_segments(double total_time1) {
             final_positions.push_back(current_position); // Store final position
         }
 
-        // Update `y0` for the next segment with the last state of this segment
+        // Update y0 for the next segment with the last state of this segment
         y0[0] = segment_result.back()[1];
         y0[1] = segment_result.back()[2];
         y0[2] = segment_result.back()[3];
@@ -647,6 +647,8 @@ void compare_ODE78_algorithm_with_segments(double total_time1) {
     // Print the final position
     std::cout << "ODE78 Final Position: X=" << y0[0] << " Y=" << y0[1] << " Z=" << y0[2] << std::endl;
 }
+
+
 
 
 void compare_ODE113_algorithm_with_segments(const std::string& algorithm_name,
@@ -714,8 +716,8 @@ void compare_ODE113_algorithm_with_segments(const std::string& algorithm_name,
 
 int main() {
     // Initial conditions
-    std::vector<double> r0 = {-19946.988367, 11684.423264, 43511.217135};  // Initial position vector
-    std::vector<double> v0 = {-0.803367, -1.762325, 0.200044};  // Initial velocity vector
+    std::vector<double> r0 = {-19946.988367233487, 11684.423263957098 , 43511.21713467376};  // Initial position vector
+    std::vector<double> v0 = {-0.803367495870, -1.762325494392, 0.200043952127}; // Initial velocity vector
 
     // Define parameters for ODE113
     double tol = 1e-16;   // Tolerance
@@ -764,7 +766,7 @@ int main() {
     start = std::chrono::high_resolution_clock::now();
     double rtol = 1e-3;
     double atol = 1e-6;
-    compare_ODE78_algorithm_with_segments(total_time);
+    compare_ODE78_algorithm_with_segments(total_time,r0,v0);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     exec_time_file << "ODE78_with_segments," << elapsed.count() << "\n";
