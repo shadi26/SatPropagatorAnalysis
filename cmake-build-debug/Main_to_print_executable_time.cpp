@@ -716,8 +716,8 @@ void compare_ODE113_algorithm_with_segments(const std::string& algorithm_name,
 
 int main() {
     // Initial conditions
-    std::vector<double> r0 = {-19946.988367233487, 11684.423263957098 , 43511.21713467376};  // Initial position vector
-    std::vector<double> v0 = {-0.803367495870, -1.762325494392, 0.200043952127}; // Initial velocity vector
+    std::vector<double> r0 = {-3566.557795151125, 2287.677752044785, -5484.503724988663};  // Initial position vector
+    std::vector<double> v0 = {-3.112370466910, -6.858062041770, -0.838163163254}; // Initial velocity vector
 
     // Define parameters for ODE113
     double tol = 1e-16;   // Tolerance
