@@ -22,7 +22,7 @@
 // Define constants
 const double EARTH_RADIUS_KM = 6378.137;  // Earth's radius in kilometers
 const int NUM_SEGMENTS = 16;
-const int NUM_GAUSS_LOBATTO_POINTS = 32;  // Number of points per segment, can be adjusted
+const int NUM_GAUSS_LOBATTO_POINTS = 16;  // Number of points per segment, can be adjusted
 
 
 void save_results_to_csv(const std::string& satellite_name, const std::string& algorithm_name,
@@ -72,268 +72,8 @@ void save_final_positions_to_csv(const std::string& satellite_name, const std::s
     file.close();
 }
 
-// Function to compare RK4 algorithm and print execution time for each time point
-void compare_RK4_algorithm(const std::string& algorithm_name,
-                           std::vector<std::vector<double>> (*algorithm_func)(
-                               std::vector<double>(*)(double, const std::vector<double>&),
-                               const std::vector<double>&,
-                               const std::vector<double>&
-                           ),
-                           const std::vector<double>& r0, const std::vector<double>& v0, const std::vector<double>& time_points) {
-
-    std::cout << "Running " << algorithm_name << " algorithm...\n";
-
-    // Concatenate initial position and velocity
-    std::vector<double> y0 = r0;
-    y0.insert(y0.end(), v0.begin(), v0.end());
-
-    std::vector<double> execution_times;
-    std::vector<std::vector<double>> final_positions;
-
-    // Loop over each time point to measure execution time for each step
-    for (size_t i = 0; i < time_points.size(); ++i) {
-        // Define the segment of time_points up to the current time point
-        std::vector<double> segment_time_points(time_points.begin(), time_points.begin() + i + 1);
-
-        // Start time for each segment
-        auto start_time = std::chrono::high_resolution_clock::now();
-
-        // Execute the algorithm on the current segment
-        std::vector<std::vector<double>> results = algorithm_func(satelliteMotion, segment_time_points, y0);
-
-        // End time for each segment
-        auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = end_time - start_time;
-        double execution_time = elapsed.count();
-
-        final_positions.push_back({results.back()[0], results.back()[1], results.back()[2]});
-        // Store the execution time for the current time point
-        execution_times.push_back(execution_time);
-    }
-
-    // Print out the execution time for each time point
-    std::cout << "Time (s) | Execution Time (s)\n";
-    for (size_t i = 0; i < time_points.size(); ++i) {
-        std::cout << time_points[i] << " | " << execution_times[i] << " seconds\n";
-    }
-
-    // Save results to CSV
-    save_results_to_csv("Satellite", algorithm_name, time_points, execution_times);
-    save_final_positions_to_csv("Satellite", algorithm_name, time_points, final_positions);
-
-    // Output total execution time
-    double total_execution_time = std::accumulate(execution_times.begin(), execution_times.end(), 0.0);
-    std::cout << algorithm_name << " total execution time: " << total_execution_time << " seconds\n";
-}
 
 
-#include <chrono>  // For measuring execution time
-
-void compare_RK8_algorithm(
-    const std::string& algorithm_name,
-    std::vector<std::vector<double>> (*algorithm_func)(
-        std::vector<double>(*)(double, const std::vector<double>&, double),
-        const std::vector<double>&,
-        const std::vector<double>&,
-        double),
-    const std::vector<double>& r0, const std::vector<double>& v0,
-    const std::vector<double>& time_points, double h = 0.1) {
-
-    std::cout << "Running " << algorithm_name << " algorithm...\n";
-
-
-    // Concatenate initial position and velocity
-    std::vector<double> y0 = r0;
-    y0.insert(y0.end(), v0.begin(), v0.end());
-
-    // Vector to store execution time for each time point
-    std::vector<double> execution_times;
-    std::vector<std::vector<double>> final_positions;
-
-    // Execute the RK8 algorithm and record execution time at each time point
-    for (const auto& t : time_points) {
-        auto start_time = std::chrono::high_resolution_clock::now();
-
-        // Execute the RK8 algorithm up to the current time point
-        std::vector<std::vector<double>> results = algorithm_func(satellite_motion, {0, t}, y0, h);
-
-        auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = end_time - start_time;
-        execution_times.push_back(elapsed.count());
-        final_positions.push_back({results.back()[0], results.back()[1], results.back()[2]});
-    }
-
-    // Display or save the execution times with time points
-    std::cout << "Execution times for " << algorithm_name << " algorithm:\n";
-    std::cout << "Time(s) | Execution Time(s)\n";
-    for (size_t i = 0; i < time_points.size(); ++i) {
-        std::cout << time_points[i] << "   " << execution_times[i] << "\n";
-    }
-
-    // Save results to CSV with execution times instead of position differences
-    save_results_to_csv("Satellite", algorithm_name, time_points, execution_times);
-    save_final_positions_to_csv("Satellite", algorithm_name, time_points, final_positions);
-}
-
-
-void compare_ODE45_algorithm(
-    const std::string& algorithm_name,
-    std::vector<std::vector<double>> (*algorithm_func)(
-        std::vector<double>(*)(double, const std::vector<double>&, double),
-        const std::vector<double>&,
-        const std::vector<double>&,
-        double, double, double),
-    const std::vector<double>& r0, const std::vector<double>& v0,
-    const std::vector<double>& time_points, double mu = 398600, double rtol = 1e-6, double atol = 1e-6) {
-
-    std::cout << "Running " << algorithm_name << " algorithm...\n";
-
-    // Concatenate initial position and velocity into y0
-    std::vector<double> y0 = r0;
-    y0.insert(y0.end(), v0.begin(), v0.end());
-
-    // Vector to store execution time for each time point
-    std::vector<double> execution_times;
-    std::vector<std::vector<double>> final_positions;
-
-    // Execute the ODE45 algorithm and record execution time at each time point
-    for (const auto& t : time_points) {
-        auto start_time = std::chrono::high_resolution_clock::now();
-
-        // Execute the ODE45 algorithm up to the current time point
-        std::vector<std::vector<double>> results = algorithm_func(satellite_motion, {0, t}, y0, mu, rtol, atol);
-
-        auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = end_time - start_time;
-        execution_times.push_back(elapsed.count());
-        final_positions.push_back({results.back()[0], results.back()[1], results.back()[2]});
-    }
-
-
-    // Display or save the execution times with time points
-    std::cout << "Execution times for " << algorithm_name << " algorithm:\n";
-    std::cout << "Time(s) | Execution Time(s)\n";
-    for (size_t i = 0; i < time_points.size(); ++i) {
-        std::cout << time_points[i] << "   " << execution_times[i] << "\n";
-    }
-
-    // Save results to CSV with execution times instead of position differences
-    save_results_to_csv("Satellite", algorithm_name, time_points, execution_times);
-    save_final_positions_to_csv("Satellite", algorithm_name, time_points, final_positions);
-}
-
-void compare_ODE78_algorithm(const std::string& algorithm_name,
-                             const std::vector<double>& r0,
-                             const std::vector<double>& v0,
-                             const std::vector<double>& time_points,
-                             const std::vector<double>& b,
-                             const std::vector<double>& bh,
-                             const std::vector<double>& c,
-                             const std::map<int, std::map<int, double>>& a,
-                             double rtol = 1e-3, double atol = 1e-6) {
-
-    std::cout << "Running " << algorithm_name << " algorithm...\n";
-
-    // Concatenate initial position and velocity into a single vector
-    std::vector<double> y0 = r0;
-    y0.insert(y0.end(), v0.begin(), v0.end());
-
-    // Validate size of y0
-    if (y0.empty()) {
-        std::cerr << "Error: Initial state vector y0 is empty.\n";
-        return;
-    }
-
-    // Vector to store execution times for each time point
-    std::vector<double> execution_times;
-    std::vector<std::vector<double>> final_positions;
-
-    // Define the ODE function inline for satellite motion (example model)
-    auto ode_func = [](double t, const std::vector<double>& y) -> std::vector<double> {
-        if (y.size() < 6) {  // Adjust based on expected state vector size (e.g., 6 for position + velocity)
-            std::cerr << "Error: State vector y has insufficient size.\n";
-            return std::vector<double>(y.size(), 0.0); // Return zero vector as fallback
-        }
-        std::vector<double> dydt(y.size(), 0.0);
-        // Example of satellite motion dynamics placeholder (replace with actual equations)
-        dydt[0] = y[3];  // Example: dx/dt = vx
-        dydt[1] = y[4];  // Example: dy/dt = vy
-        dydt[2] = y[5];  // Example: dz/dt = vz
-        // Define derivatives for velocity components (dynamics equations required)
-        return dydt;
-    };
-
-    // Execute the ODE78 algorithm for each time point
-    for (const auto& t : time_points) {
-        auto start_time = std::chrono::high_resolution_clock::now();
-
-        // Execute the ODE78 algorithm up to the current time point
-        std::vector<std::vector<double>> results = ode78(ode_func, {0, t}, y0, b, bh, c, a, rtol, atol);
-
-        auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = end_time - start_time;
-        execution_times.push_back(elapsed.count());
-        final_positions.push_back({results.back()[0], results.back()[1], results.back()[2]});
-    }
-
-    // Display or save the execution times with time points
-    std::cout << "Execution times for " << algorithm_name << " algorithm:\n";
-    std::cout << "Time(s) | Execution Time(s)\n";
-    for (size_t i = 0; i < time_points.size(); ++i) {
-        std::cout << time_points[i] << "   " << execution_times[i] << "\n";
-    }
-
-    // Save execution times to CSV instead of position differences
-    save_results_to_csv("Satellite", algorithm_name, time_points, execution_times);
-    save_final_positions_to_csv("Satellite", algorithm_name, time_points, final_positions);
-}
-
-// Function to compare ODE113 algorithm execution and print execution time
-void compare_ODE113_algorithm(
-    const std::string& algorithm_name,
-    std::vector<double>(*ode_func)(double, const std::vector<double>&, double),
-    const std::vector<double>& r0,
-    const std::vector<double>& v0,
-    const std::vector<double>& time_points,
-    double tol = 1e-6,
-    double hmax = 1.0,
-    double hmin = 1e-6,
-    double mu = 398600
-) {
-    std::cout << "Running " << algorithm_name << " algorithm...\n";
-
-    // Concatenate initial position and velocity into y0
-    std::vector<double> y0 = r0;
-    y0.insert(y0.end(), v0.begin(), v0.end());
-
-    // Vector to store execution times for each time point
-    std::vector<double> execution_times;
-    std::vector<std::vector<double>> final_positions;
-
-    // Execute the ODE113 algorithm for each time point
-    for (const auto& t : time_points) {
-        auto start_time = std::chrono::high_resolution_clock::now();
-
-        // Execute the ODE113 algorithm up to the current time point
-        std::vector<std::vector<double>> results = ODE113(ode_func, {0, t}, y0, tol, hmax, hmin, mu);
-
-        auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = end_time - start_time;
-        execution_times.push_back(elapsed.count());
-        final_positions.push_back({results.back()[0], results.back()[1], results.back()[2]});
-    }
-
-    // Display or save the execution times with time points
-    std::cout << "Execution times for " << algorithm_name << " algorithm:\n";
-    std::cout << "Time(s) | Execution Time(s)\n";
-    for (size_t i = 0; i < time_points.size(); ++i) {
-        std::cout << time_points[i] << "   " << execution_times[i] << "\n";
-    }
-
-    // Save execution times to CSV
-    save_results_to_csv("Satellite", algorithm_name, time_points, execution_times);
-    save_final_positions_to_csv("Satellite", algorithm_name, time_points, final_positions);
-}
 
 
 // Function definitions for each algorithm (rk4, rk8, ode45, ode78, ODE113)
@@ -359,125 +99,71 @@ extern std::vector<std::vector<double>> ode78(
     double atol
 );
 
-void compare_RK4_algorithm_with_segments(const std::string& algorithm_name,
-                                         std::vector<std::vector<double>> (*algorithm_func)(
-                                                 std::vector<double>(*)(double, const std::vector<double>&),
-                                                 const std::vector<double>&,
-                                                 const std::vector<double>&),
-                                         const std::vector<double>& r0, const std::vector<double>& v0,
-                                         double total_time) {
-    double segment_duration = total_time / NUM_SEGMENTS; // Duration of each segment
+void compare_RK4_algorithm_with_segments(
+        const std::string& algorithm_name,
+        std::vector<std::vector<double>> (*algorithm_func)(
+                std::vector<double>(*)(double, const std::vector<double>&),
+                const std::vector<double>&,
+                const std::vector<double>&),
+        const std::vector<double>& r0,
+        const std::vector<double>& v0,
+        double total_time,
+        double orbital_period) {
+
+    // Calculate the number of orbits and segment duration
+    int num_orbits = static_cast<int>(total_time / orbital_period); // Number of orbits
+    int num_segments = 8; // Number of segments per orbit
+    double segment_duration = orbital_period / num_segments; // Duration of each segment
+
     std::vector<double> y0 = r0; // Initial position
     y0.insert(y0.end(), v0.begin(), v0.end()); // Append initial velocity to form state vector
 
     double total_execution_time = 0.0;
+    int total_points = 0; // Variable to count total Gauss-Lobatto points used
 
     // Vectors to store execution times, final positions, and time points
     std::vector<double> execution_times;
     std::vector<std::vector<double>> final_positions;
     std::vector<double> time_points;
 
-    for (int segment = 0; segment < NUM_SEGMENTS; ++segment) {
-        double t_start = segment * segment_duration;
-        double t_end = (segment + 1) * segment_duration;
+    // Outer loop for orbits
+    for (int orbit = 0; orbit < num_orbits; ++orbit) {
+        for (int segment = 0; segment < num_segments; ++segment) {
+            double t_start = orbit * orbital_period + segment * segment_duration;
+            double t_end = t_start + segment_duration;
 
-        // Generate Gauss-Lobatto points for the current segment
-        std::vector<double> segment_time_points = gaussLobattoPoints(NUM_GAUSS_LOBATTO_POINTS, t_start, t_end);
+            // Generate Gauss-Lobatto points for the current segment
+            std::vector<double> segment_time_points = gaussLobattoPoints(NUM_GAUSS_LOBATTO_POINTS, t_start, t_end);
 
-        // Start measuring execution time for this segment
-        auto start_time = std::chrono::high_resolution_clock::now();
+            // Increment total_points by the number of Gauss-Lobatto points
+            total_points += segment_time_points.size();
 
-        // Execute the algorithm for all Gauss-Lobatto points in this segment
-        std::vector<std::vector<double>> results = algorithm_func(satelliteMotion, segment_time_points, y0);
+            // Start measuring execution time for this segment
+            auto start_time = std::chrono::high_resolution_clock::now();
 
-        // Stop measuring execution time for this segment
-        auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = end_time - start_time;
+            // Execute the RK4 algorithm for all Gauss-Lobatto points in this segment
+            std::vector<std::vector<double>> results = algorithm_func(satelliteMotion, segment_time_points, y0);
 
-        // Accumulate total execution time
-        double execution_time = elapsed.count();
-        total_execution_time += execution_time;
+            // Stop measuring execution time for this segment
+            auto end_time = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end_time - start_time;
 
-        // Iterate through each result and store positions and times
-        for (size_t i = 0; i < segment_time_points.size(); ++i) {
-            time_points.push_back(segment_time_points[i]); // Store time point
-            final_positions.push_back({results[i][0], results[i][1], results[i][2]}); // Store position
+            // Accumulate total execution time for the segment
+            double execution_time = elapsed.count();
+            total_execution_time += execution_time;
+
+            // Iterate through each result and store positions and times
+            for (size_t i = 0; i < segment_time_points.size(); ++i) {
+                time_points.push_back(segment_time_points[i]); // Store time point
+                final_positions.push_back({results[i][0], results[i][1], results[i][2]}); // Store position
+            }
+
+            // Update y0 to the last state of this segment
+            y0 = results.back();
+
+            // Store the execution time for the segment
+            execution_times.push_back(execution_time);
         }
-
-        // Update y0 to the last state of this segment
-        y0 = results.back();
-
-        // Store the execution time for the entire segment
-        execution_times.push_back(execution_time);
-    }
-
-    // Save execution times to a CSV file (only for segments)
-    save_results_to_csv("Satellite", algorithm_name, time_points, execution_times);
-
-    // Save final positions to a CSV file
-    save_final_positions_to_csv("Satellite", algorithm_name, time_points, final_positions);
-
-    // Print total execution time
-    std::cout << algorithm_name << " total execution time: " << total_execution_time << " seconds\n";
-
-    // Print the final position after the last segment
-    std::cout << "Final position after " << total_time << " seconds: "
-              << y0[0] << ", " << y0[1] << ", " << y0[2] << "\n";
-}
-
-
-
-
-
-void compare_RK8_algorithm_with_segments(const std::string& algorithm_name,
-                                         std::vector<std::vector<double>> (*algorithm_func)(
-                                                 std::vector<double>(*)(double, const std::vector<double>&, double),
-                                                 const std::vector<double>&,
-                                                 const std::vector<double>&,
-                                                 double),
-                                         const std::vector<double>& r0, const std::vector<double>& v0,
-                                         double total_time, double h = 0.1) {
-    double segment_duration = total_time / NUM_SEGMENTS; // Duration of each segment
-    std::vector<double> y0 = r0; // Initial position
-    y0.insert(y0.end(), v0.begin(), v0.end()); // Append initial velocity to form state vector
-
-    double total_execution_time = 0.0;
-
-    // Vectors to store execution times, final positions, and time points
-    std::vector<double> execution_times;
-    std::vector<std::vector<double>> final_positions;
-    std::vector<double> time_points;
-
-    for (int segment = 0; segment < NUM_SEGMENTS; ++segment) {
-        double t_start = segment * segment_duration;
-        double t_end = (segment + 1) * segment_duration;
-
-        // Generate Gauss-Lobatto points for the current segment
-        std::vector<double> segment_time_points = gaussLobattoPoints(NUM_GAUSS_LOBATTO_POINTS, t_start, t_end);
-
-        auto start_time = std::chrono::high_resolution_clock::now();
-
-        // Execute the RK8 algorithm for all Gauss-Lobatto points in this segment
-        std::vector<std::vector<double>> results = algorithm_func(satellite_motion, segment_time_points, y0, h);
-
-        auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = end_time - start_time;
-
-        // Accumulate total execution time for the segment
-        double execution_time = elapsed.count();
-        total_execution_time += execution_time;
-
-        // Iterate through each result and store positions and times
-        for (size_t i = 0; i < segment_time_points.size(); ++i) {
-            time_points.push_back(segment_time_points[i]); // Store time point
-            final_positions.push_back({results[i][0], results[i][1], results[i][2]}); // Store position
-        }
-
-        // Update y0 to the last state of this segment
-        y0 = results.back();
-
-        // Store execution time for the entire segment
-        execution_times.push_back(execution_time);
     }
 
     // Save execution times to a CSV file (segment-level granularity)
@@ -492,58 +178,82 @@ void compare_RK8_algorithm_with_segments(const std::string& algorithm_name,
     // Print the final position after the last segment
     std::cout << "Final position after " << total_time << " seconds: "
               << y0[0] << ", " << y0[1] << ", " << y0[2] << "\n";
+
+    // Print the total number of Gauss-Lobatto points used
+    std::cout << "Total number of Gauss-Lobatto points used: " << total_points << "\n";
 }
 
 
-void compare_ODE45_algorithm_with_segments(const std::string& algorithm_name,
-                                           std::vector<std::vector<double>> (*algorithm_func)(
-                                                   std::vector<double>(*)(double, const std::vector<double>&, double),
-                                                   const std::vector<double>&,
-                                                   const std::vector<double>&,
-                                                   double, double, double),
-                                           const std::vector<double>& r0, const std::vector<double>& v0,
-                                           double total_time, double mu = 398600, double rtol = 1e-6, double atol = 1e-6) {
-    double segment_duration = total_time / NUM_SEGMENTS; // Duration of each segment
+
+
+
+
+void compare_RK8_algorithm_with_segments(
+        const std::string& algorithm_name,
+        std::vector<std::vector<double>> (*algorithm_func)(
+                std::vector<double>(*)(double, const std::vector<double>&, double),
+                const std::vector<double>&,
+                const std::vector<double>&,
+                double),
+        const std::vector<double>& r0,
+        const std::vector<double>& v0,
+        double total_time,
+        double orbital_period,
+        double h = 0.1) {
+
+
+    // Calculate the number of orbits and segment duration
+    int num_orbits = static_cast<int>(total_time / orbital_period); // Number of orbits
+    int num_segments = 8; // Number of segments per orbit
+    double segment_duration = orbital_period / num_segments; // Duration of each segment
+
     std::vector<double> y0 = r0; // Initial position
     y0.insert(y0.end(), v0.begin(), v0.end()); // Append initial velocity to form state vector
 
     double total_execution_time = 0.0;
+    int total_points = 0; // Variable to count total Gauss-Lobatto points used
 
     // Vectors to store execution times, final positions, and time points
     std::vector<double> execution_times;
     std::vector<std::vector<double>> final_positions;
     std::vector<double> time_points;
 
-    for (int segment = 0; segment < NUM_SEGMENTS; ++segment) {
-        double t_start = segment * segment_duration;
-        double t_end = (segment + 1) * segment_duration;
+    // Outer loop for orbits
+    for (int orbit = 0; orbit < num_orbits; ++orbit) {
+        for (int segment = 0; segment < num_segments; ++segment) {
+            double t_start = orbit * orbital_period + segment * segment_duration;
+            double t_end = t_start + segment_duration;
 
-        // Generate Gauss-Lobatto points for the current segment
-        std::vector<double> segment_time_points = gaussLobattoPoints(NUM_GAUSS_LOBATTO_POINTS, t_start, t_end);
+            // Generate Gauss-Lobatto points for the current segment
+            std::vector<double> segment_time_points = gaussLobattoPoints(NUM_GAUSS_LOBATTO_POINTS, t_start, t_end);
 
-        auto start_time = std::chrono::high_resolution_clock::now();
+            // Increment total_points by the number of Gauss-Lobatto points
+            total_points += segment_time_points.size();
 
-        // Execute the ODE45 algorithm for all Gauss-Lobatto points in this segment
-        std::vector<std::vector<double>> results = algorithm_func(satellite_motion, segment_time_points, y0, mu, rtol, atol);
+            auto start_time = std::chrono::high_resolution_clock::now();
 
-        auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = end_time - start_time;
+            // Execute the RK8 algorithm for all Gauss-Lobatto points in this segment
+            std::vector<std::vector<double>> results = algorithm_func(satellite_motion, segment_time_points, y0, h);
 
-        // Accumulate total execution time for the segment
-        double execution_time = elapsed.count();
-        total_execution_time += execution_time;
+            auto end_time = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end_time - start_time;
 
-        // Iterate through each result and store positions and times
-        for (size_t i = 0; i < segment_time_points.size(); ++i) {
-            time_points.push_back(segment_time_points[i]); // Store time point
-            final_positions.push_back({results[i][0], results[i][1], results[i][2]}); // Store position
+            // Accumulate total execution time for the segment
+            double execution_time = elapsed.count();
+            total_execution_time += execution_time;
+
+            // Iterate through each result and store positions and times
+            for (size_t i = 0; i < segment_time_points.size(); ++i) {
+                time_points.push_back(segment_time_points[i]); // Store time point
+                final_positions.push_back({results[i][0], results[i][1], results[i][2]}); // Store position
+            }
+
+            // Update y0 to the last state of this segment
+            y0 = results.back();
+
+            // Store execution time for the segment
+            execution_times.push_back(execution_time);
         }
-
-        // Update y0 to the last state of this segment
-        y0 = results.back();
-
-        // Store execution time for the entire segment
-        execution_times.push_back(execution_time);
     }
 
     // Save execution times to a CSV file (segment-level granularity)
@@ -558,25 +268,122 @@ void compare_ODE45_algorithm_with_segments(const std::string& algorithm_name,
     // Print the final position after the last segment
     std::cout << "Final position after " << total_time << " seconds: "
               << y0[0] << ", " << y0[1] << ", " << y0[2] << "\n";
+
+    // Print the total number of Gauss-Lobatto points used
+    std::cout << "Total number of Gauss-Lobatto points used: " << total_points << "\n";
 }
 
 
-void compare_ODE78_algorithm_with_segments(double total_time1,std::vector<double> r0,std::vector<double> v0) {
+
+void compare_ODE45_algorithm_with_segments(
+        const std::string& algorithm_name,
+        std::vector<std::vector<double>> (*algorithm_func)(
+                std::vector<double>(*)(double, const std::vector<double>&, double),
+                const std::vector<double>&,
+                const std::vector<double>&,
+                double, double, double),
+        const std::vector<double>& r0,
+        const std::vector<double>& v0,
+        double total_time,
+        double orbital_period,
+        double mu,
+        double rtol,
+        double atol) {
+
+    // Calculate the number of orbits and segment duration
+    int num_orbits = static_cast<int>(total_time / orbital_period); // Number of orbits
+    int num_segments = 8; // Number of segments per orbit
+    double segment_duration = orbital_period / num_segments; // Duration of each segment
+
+    std::vector<double> y0 = r0; // Initial position
+    y0.insert(y0.end(), v0.begin(), v0.end()); // Append initial velocity to form state vector
+
+    double total_execution_time = 0.0;
+    int total_points = 0; // Variable to count total Gauss-Lobatto points used
+
+    // Vectors to store execution times, final positions, and time points
+    std::vector<double> execution_times;
+    std::vector<std::vector<double>> final_positions;
+    std::vector<double> time_points;
+
+    // Outer loop for orbits
+    for (int orbit = 0; orbit < num_orbits; ++orbit) {
+        for (int segment = 0; segment < num_segments; ++segment) {
+            double t_start = orbit * orbital_period + segment * segment_duration;
+            double t_end = t_start + segment_duration;
+
+            // Generate Gauss-Lobatto points for the current segment
+            std::vector<double> segment_time_points = gaussLobattoPoints(NUM_GAUSS_LOBATTO_POINTS, t_start, t_end);
+
+            // Increment total_points by the number of Gauss-Lobatto points
+            total_points += segment_time_points.size();
+
+            auto start_time = std::chrono::high_resolution_clock::now();
+
+            // Execute the ODE45 algorithm for all Gauss-Lobatto points in this segment
+            std::vector<std::vector<double>> results = algorithm_func(satellite_motion, segment_time_points, y0, mu, rtol, atol);
+
+            auto end_time = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end_time - start_time;
+
+            // Accumulate total execution time for the segment
+            double execution_time = elapsed.count();
+            total_execution_time += execution_time;
+
+            // Iterate through each result and store positions and times
+            for (size_t i = 0; i < segment_time_points.size(); ++i) {
+                time_points.push_back(segment_time_points[i]); // Store time point
+                final_positions.push_back({results[i][0], results[i][1], results[i][2]}); // Store position
+            }
+
+            // Update y0 to the last state of this segment
+            y0 = results.back();
+
+            // Store execution time for the segment
+            execution_times.push_back(execution_time);
+        }
+    }
+
+    // Save execution times to a CSV file (segment-level granularity)
+    save_results_to_csv("Satellite", algorithm_name, time_points, execution_times);
+
+    // Save final positions to a CSV file (time point-level granularity)
+    save_final_positions_to_csv("Satellite", algorithm_name, time_points, final_positions);
+
+    // Print total execution time
+    std::cout << algorithm_name << " total execution time: " << total_execution_time << " seconds\n";
+
+    // Print the final position after the last segment
+    std::cout << "Final position after " << total_time << " seconds: "
+              << y0[0] << ", " << y0[1] << ", " << y0[2] << "\n";
+
+    // Print the total number of Gauss-Lobatto points used
+    std::cout << "Total number of Gauss-Lobatto points used: " << total_points << "\n";
+}
+
+
+
+void compare_ODE78_algorithm_with_segments(
+        std::vector<double> r0,
+        std::vector<double> v0,
+        double total_time1,
+        double orbital_period) {
+
     if (std::isnan(total_time1)) {  // Check if total_time1 is NaN
         std::cerr << "Error: total_time1 is NaN." << std::endl;
         return;
     }
 
     double total_time = total_time1;
-    int num_segments = 16;                // Number of segments
-    double segment_time = total_time / num_segments;
-    int n_points = 32;                    // Number of Gauss-Lobatto points
+    int num_orbits = static_cast<int>(total_time / orbital_period); // Number of orbits
+    int num_segments = 8;                // Number of segments per orbit
+    double segment_time = orbital_period / num_segments; // Duration of each segment
+    int n_points = 16;                    // Number of Gauss-Lobatto points per segment
     double mu = 398600;                   // Gravitational parameter
     double tol = 1e-16;                   // Tolerance
     double rtol = tol / 1000;
     double hmax = 0.01;
     double hmin = 1e-10;
-
 
     std::vector<double> y0 = r0;
     y0.insert(y0.end(), v0.begin(), v0.end());
@@ -597,40 +404,43 @@ void compare_ODE78_algorithm_with_segments(double total_time1,std::vector<double
     // Record the start time
     auto start = std::chrono::high_resolution_clock::now();
 
-    for (int segment = 0; segment < num_segments; ++segment) {
-        double t_start = segment * segment_time;
-        double t_end = t_start + segment_time;
+    // Outer loop for orbits
+    for (int orbit = 0; orbit < num_orbits; ++orbit) {
+        for (int segment = 0; segment < num_segments; ++segment) {
+            double t_start = orbit * orbital_period + segment * segment_time;
+            double t_end = t_start + segment_time;
 
-        // Generate Gauss-Lobatto points for the current segment
-        auto gauss_lobatto_tspan = gaussLobattoPoints(n_points, t_start, t_end);
+            // Generate Gauss-Lobatto points for the current segment
+            auto gauss_lobatto_tspan = gaussLobattoPoints(n_points, t_start, t_end);
 
-        auto segment_start_time = std::chrono::high_resolution_clock::now();
+            auto segment_start_time = std::chrono::high_resolution_clock::now();
 
-        // Run ODE78 with Gauss-Lobatto points for the current segment
-        auto segment_result = ode78(func, gauss_lobatto_tspan, y0, b, bh, c_vector, a, tol, rtol);
+            // Run ODE78 with Gauss-Lobatto points for the current segment
+            auto segment_result = ode78(func, gauss_lobatto_tspan, y0, b, bh, c_vector, a, tol, rtol);
 
-        auto segment_end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> segment_elapsed = segment_end_time - segment_start_time;
+            auto segment_end_time = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> segment_elapsed = segment_end_time - segment_start_time;
 
-        // Store execution time for the segment
-        execution_times.push_back(segment_elapsed.count());
+            // Store execution time for the segment
+            execution_times.push_back(segment_elapsed.count());
 
-        // Process results for each Gauss-Lobatto point
-        for (const auto& result : segment_result) {
-            double t_point = result[0];
-            std::vector<double> current_position(result.begin() + 1, result.begin() + 4);  // Extract position
+            // Process results for each Gauss-Lobatto point
+            for (const auto& result : segment_result) {
+                double t_point = result[0];
+                std::vector<double> current_position(result.begin() + 1, result.begin() + 4);  // Extract position
 
-            time_points.push_back(t_point);            // Store time point
-            final_positions.push_back(current_position); // Store final position
+                time_points.push_back(t_point);            // Store time point
+                final_positions.push_back(current_position); // Store final position
+            }
+
+            // Update y0 for the next segment with the last state of this segment
+            y0[0] = segment_result.back()[1];
+            y0[1] = segment_result.back()[2];
+            y0[2] = segment_result.back()[3];
+            y0[3] = segment_result.back()[4];
+            y0[4] = segment_result.back()[5];
+            y0[5] = segment_result.back()[6];
         }
-
-        // Update y0 for the next segment with the last state of this segment
-        y0[0] = segment_result.back()[1];
-        y0[1] = segment_result.back()[2];
-        y0[2] = segment_result.back()[3];
-        y0[3] = segment_result.back()[4];
-        y0[4] = segment_result.back()[5];
-        y0[5] = segment_result.back()[6];
     }
 
     // Record the total elapsed time
@@ -645,92 +455,111 @@ void compare_ODE78_algorithm_with_segments(double total_time1,std::vector<double
     std::cout << "ODE78 Execution time: " << elapsed.count() << " seconds\n";
 
     // Print the final position
-    std::cout << "ODE78 Final Position: X=" << y0[0] << " Y=" << y0[1] << " Z=" << y0[2] << std::endl;
+    std::cout << "ODE78 Final Position: X=" << y0[0] << ", Y=" << y0[1] << ", Z=" << y0[2] << std::endl;
+
+    // Print the total number of points used
+    int total_points = num_orbits * num_segments * n_points;
+    std::cout << "Total number of Gauss-Lobatto points used: " << total_points << "\n";
 }
 
 
 
 
-void compare_ODE113_algorithm_with_orbital_time(
+
+void compare_ODE113_algorithm_with_segments(
         const std::string& algorithm_name,
-        std::vector<std::vector<double>> (*algorithm_func)(
-                std::vector<double>(*)(double, const std::vector<double>&, double),
-                const std::vector<double>&,
-                const std::vector<double>&,
-                double, double, double, double),
-        const std::vector<double>& r0, const std::vector<double>& v0,
+        const std::vector<double>& r0,
+        const std::vector<double>& v0,
+        double tol,
+        double hmax,
+        double hmin,
+        double mu,
         double orbital_period,
-        double tol, double hmax, double hmin, double mu) {
-
-    double total_time = 1'200'000.0; // 1.2 million seconds
+        double total_time) {
+    std::cout << "afs3 hyane hon" ;
     int num_orbits = static_cast<int>(total_time / orbital_period);
-    double segment_duration = orbital_period; // Each segment equals one orbital period
+    int num_segments = NUM_SEGMENTS;
+    double segment_duration = orbital_period / num_segments;
 
-    std::vector<double> y0 = r0; // Initial position
-    y0.insert(y0.end(), v0.begin(), v0.end()); // Append initial velocity to form state vector
+    std::vector<double> y0 = r0;
+    y0.insert(y0.end(), v0.begin(), v0.end());
 
     double total_execution_time = 0.0;
+    int total_points = 0;
 
-    // Vectors to store execution times, final positions, and time points
     std::vector<double> execution_times;
     std::vector<std::vector<double>> final_positions;
     std::vector<double> time_points;
 
     for (int orbit = 0; orbit < num_orbits; ++orbit) {
-        double t_start = orbit * orbital_period;
-        double t_end = (orbit + 1) * orbital_period;
+        for (int segment = 0; segment < num_segments; ++segment) {
+            double t_start = orbit * orbital_period + segment * segment_duration;
+            double t_end = t_start + segment_duration;
 
-        // Generate Gauss-Lobatto points for the current orbit
-        std::vector<double> orbit_time_points = gaussLobattoPoints(NUM_GAUSS_LOBATTO_POINTS, t_start, t_end);
+            // Generate Gauss-Lobatto points
+            std::vector<double> segment_time_points = gaussLobattoPoints(NUM_GAUSS_LOBATTO_POINTS, t_start, t_end);
+            total_points += segment_time_points.size();
 
-        auto orbit_start_time = std::chrono::high_resolution_clock::now();
+            auto segment_start_time = std::chrono::high_resolution_clock::now();
 
-        // Execute the ODE113 algorithm for all Gauss-Lobatto points in this orbit
-        std::vector<std::vector<double>> results = algorithm_func(satellite_motion, orbit_time_points, y0, tol, hmax, hmin, mu);
+            // Execute ODE113 for the current segment
+            ODE113Result results = ODE113(
+                satellite_motion,
+                segment_time_points,
+                y0,
+                mu,
+                tol,
+                tol, // Absolute tolerance
+                hmax,
+                hmin
+            );
 
-        auto orbit_end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> orbit_elapsed = orbit_end_time - orbit_start_time;
+            auto segment_end_time = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> segment_elapsed = segment_end_time - segment_start_time;
 
-        // Store execution time for the orbit
-        execution_times.push_back(orbit_elapsed.count());
+            // Store execution time
+            execution_times.push_back(segment_elapsed.count());
+            total_execution_time += segment_elapsed.count();
 
-        // Process results for each Gauss-Lobatto point
-        for (size_t i = 0; i < orbit_time_points.size(); ++i) {
-            time_points.push_back(orbit_time_points[i]); // Store time point
-            final_positions.push_back({results[i][0], results[i][1], results[i][2]}); // Store position
+            // Store results for each Gauss-Lobatto point
+            for (size_t i = 0; i < results.time.size(); ++i) {
+                time_points.push_back(results.time[i]);
+                final_positions.push_back({results.values[i][0], results.values[i][1], results.values[i][2]});
+            }
+
+            // Update y0 for the next segment
+            y0 = results.values.back();
         }
-
-        // Update y0 for the next orbit with the last state of this orbit
-        y0 = results.back();
     }
 
-    // Save execution times to a CSV file (orbit-level granularity)
+    // Save results to CSV
     save_results_to_csv("Satellite", algorithm_name, time_points, execution_times);
-
-    // Save final positions to a CSV file (time point-level granularity)
     save_final_positions_to_csv("Satellite", algorithm_name, time_points, final_positions);
 
-    // Print total execution time
-    total_execution_time = std::accumulate(execution_times.begin(), execution_times.end(), 0.0);
+    // Print statistics
     std::cout << algorithm_name << " total execution time: " << total_execution_time << " seconds\n";
-
-    // Print the final position after the last orbit
     std::cout << "Final position after " << total_time << " seconds: "
               << y0[0] << ", " << y0[1] << ", " << y0[2] << "\n";
+    std::cout << "Total number of points used: " << total_points << "\n";
 }
+
+
+
 
 
 int main() {
     // Initial conditions
-    std::vector<double> r0 = {-3566.557795151125, 2287.677752044785, -5484.503724988663};  // Initial position vector
-    std::vector<double> v0 = {-3.112370466910, -6.858062041770, -0.838163163254}; // Initial velocity vector
+    std::vector<double> r0 = {  -19946.988367233487, 11684.423263957098, 43511.217134673760 };  // Initial position vector
+    std::vector<double> v0 = { -0.803367495870, -1.762325494392, 0.200043952127  }; // Initial velocity vector
 
     // Define parameters for ODE113
     double tol = 1e-16;   // Tolerance
     double hmax = 0.01;   // Maximum step size
     double hmin = 1e-10;  // Minimum step size
     double mu = 398600;  // Gravitational parameter for Earth
-    double total_time = 1000000.0;  // Total simulation time in seconds
+    double total_time = 1000000;  // Total simulation time in seconds
+    // Compute the orbital period
+    double orbital_period =     57438.77;
 
     // File to save execution times
     std::ofstream exec_time_file("algorithm_execution_times.csv");
@@ -742,7 +571,7 @@ int main() {
 
     // Timer for RK4 with segments
     auto start = std::chrono::high_resolution_clock::now();
-    compare_RK4_algorithm_with_segments("RK4", rk4, r0, v0, total_time);
+    compare_RK4_algorithm_with_segments("RK4", rk4, r0, v0, total_time, orbital_period);
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
     exec_time_file << "RK4_with_segments," << elapsed.count() << "\n";
@@ -751,7 +580,15 @@ int main() {
     // Timer for RK8 with segments
     start = std::chrono::high_resolution_clock::now();
     double step_size = 0.1;  // Step size for RK8
-    compare_RK8_algorithm_with_segments("RK8", RK8, r0, v0, total_time, step_size);
+    compare_RK8_algorithm_with_segments(
+    "RK8",
+    RK8,
+    r0,
+    v0,
+    total_time,
+    orbital_period, // Pass the orbital period here
+    0.1             // Step size
+);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     exec_time_file << "RK8_with_segments," << elapsed.count() << "\n";
@@ -762,7 +599,17 @@ int main() {
     const double MU = 398600;    // Gravitational parameter
     const double RTOL = 1e-16;    // Relative tolerance
     const double ATOL = 1e-16;    // Absolute tolerance
-    compare_ODE45_algorithm_with_segments("ODE45", ode45, r0, v0, total_time, MU, RTOL, ATOL);
+    compare_ODE45_algorithm_with_segments(
+    "ODE45",
+    ode45,
+    r0,
+    v0,
+    total_time,
+    orbital_period,
+    398600,  // mu
+    1e-6,    // rtol
+    1e-6     // atol
+);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     exec_time_file << "ODE45_with_segments," << elapsed.count() << "\n";
@@ -772,7 +619,7 @@ int main() {
     start = std::chrono::high_resolution_clock::now();
     double rtol = 1e-3;
     double atol = 1e-6;
-    compare_ODE78_algorithm_with_segments(total_time,r0,v0);
+    compare_ODE78_algorithm_with_segments(r0, v0, total_time, orbital_period);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     exec_time_file << "ODE78_with_segments," << elapsed.count() << "\n";
@@ -780,7 +627,9 @@ int main() {
 
     // Timer for ODE113 with segments
     start = std::chrono::high_resolution_clock::now();
-    compare_ODE113_algorithm_with_segments("ODE113", ODE113, r0, v0, total_time, tol, hmax, hmin, mu);
+    compare_ODE113_algorithm_with_segments(
+    "ODE113", r0, v0, 1e-6, 100, 1e-3, mu, orbital_period, 500000
+);
     end = std::chrono::high_resolution_clock::now();
     elapsed = end - start;
     exec_time_file << "ODE113_with_segments," << elapsed.count() << "\n";

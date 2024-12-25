@@ -1,6 +1,6 @@
 Algorithm,Execution Time (s)
-RK4_with_segments,0.00444057
-RK8_with_segments,0.0271164
-ODE45_with_segments,0.00970554
-ODE78_with_segments,0.0342619
-ODE113_with_segments,0.00614428
+RK4_with_segments,0.0194982
+RK8_with_segments,0.113478
+ODE45_with_segments,0.0395573
+ODE78_with_segments,0.14887
+ODE113_with_segments,0.0719808

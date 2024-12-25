@@ -1,118 +1,97 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <stdexcept>
-#include <tuple>
+#include <algorithm>
 #include <iomanip>
 #include "CommonFunctions.h"
 
-// Helper function for vector operations (operator overloading provided at the top of the code)
-#ifndef M_PI
-    #define M_PI 3.14159265358979323846
-#endif
+using namespace std;
 
-
-
-// Function to perform a single step of the classic 4th-order Runge-Kutta method
-std::vector<double> rk4_step(std::vector<double>(*f)(double, const std::vector<double>&, double), double t, const std::vector<double>& y, double h, double mu) {
-    std::vector<double> k1 = h * f(t, y, mu);
-    std::vector<double> k2 = h * f(t + 0.5 * h, y + 0.5 * k1, mu);
-    std::vector<double> k3 = h * f(t + 0.5 * h, y + 0.5 * k2, mu);
-    std::vector<double> k4 = h * f(t + h, y + k3, mu);
-    return y + (k1 + 2 * k2 + 2 * k3 + k4) / 6.0;
-}
-
-// Adams-Bashforth-Moulton method (ODE113) using fixed time points to solve ODEs
-std::vector<std::vector<double>> ODE113(
-    std::vector<double>(*f)(double, const std::vector<double>&, double),
-    const std::vector<double>& time_points,
-    const std::vector<double>& y0,
-    double tol,
-    double hmax ,
-    double hmin ,
-    double mu
-){
-    std::vector<double> t_values_list = {time_points[0]};
-    std::vector<std::vector<double>> y_values_list = {y0};
-
-    // Initial conditions for the first few steps using RK4
-    for (int i = 0; i < 3 && i < time_points.size() - 1; ++i) {
-        double t = time_points[i];
-        double h = time_points[i + 1] - t;
-        std::vector<double> y_next = rk4_step(f, t, y_values_list.back(), h, mu);
-        t_values_list.push_back(time_points[i + 1]);
-        y_values_list.push_back(y_next);
-    }
-
-    // Adams-Bashforth-Moulton method
-    for (int i = 3; i < time_points.size() - 1; ++i) {
-        double t = time_points[i];
-        double h = time_points[i + 1] - t;
-
-        // Adams-Bashforth predictor
-        std::vector<double> y_pred = y_values_list.back() + h / 24.0 * (
-            55.0 * f(time_points[i], y_values_list.back(), mu)
-            - 59.0 * f(time_points[i - 1], y_values_list[i - 1], mu)
-            + 37.0 * f(time_points[i - 2], y_values_list[i - 2], mu)
-            - 9.0 * f(time_points[i - 3], y_values_list[i - 3], mu)
-        );
-
-        // Adams-Moulton corrector
-        std::vector<double> y_correct = y_values_list.back() + h / 24.0 * (
-            9.0 * f(time_points[i + 1], y_pred, mu)
-            + 19.0 * f(time_points[i], y_values_list[i], mu)
-            - 5.0 * f(time_points[i - 1], y_values_list[i - 1], mu)
-            + 1.0 * f(time_points[i - 2], y_values_list[i - 2], mu)
-        );
-
-        t_values_list.push_back(time_points[i + 1]);
-        y_values_list.push_back(y_correct);
-    }
-
-    return y_values_list;
-}
-
-/*
-int main() {
-// Initial conditions
-std::vector<double> r0 = {-3829.29, 5677.86, -1385.16};  // Initial position vector
-std::vector<double> v0 = {-1.69535, -0.63752, 7.33375};  // Initial velocity vector
-std::vector<double> y0(6);
-std::copy(r0.begin(), r0.end(), y0.begin());
-std::copy(v0.begin(), v0.end(), y0.begin() + 3);
-
-// Define the time range and the number of Gauss-Lobatto points
-double t_start = 0;
-double t_end = 3600;  // For example, a time span from 0 to 3600 seconds
-int n_points = 20;    // Number of Gauss-Lobatto points
-
-// Generate Gauss-Lobatto points within the time range
-std::vector<double> t_gauss_lobatto = gaussLobattoPoints(n_points, t_start, t_end);
-
-// Define the function for satellite motion
-auto func = [](double t, const std::vector<double>& y) -> std::vector<double> {
-return satelliteMotion(t, y);
+struct Result {
+    vector<double> time;
+    vector<vector<double>> values;
 };
 
-// Perform integration using ODE113 with Gauss-Lobatto points
-std::vector<std::vector<double>> results = ODE113(satellite_motion, t_gauss_lobatto, y0, 1e-6);
 
 
-// Print results in an organized format
-std::cout << std::setw(8) << "Time" << std::setw(12) << "PosX" << std::setw(12) << "PosY"
-<< std::setw(12) << "PosZ" << std::setw(12) << "VelX" << std::setw(12) << "VelY"
-<< std::setw(12) << "VelZ" << std::endl;
-std::cout << std::string(80, '-') << std::endl;
+// ODE113 implementation
+Result ODE113(
+    std::vector<double> (*ode)(double, const std::vector<double>&, double),
+    const vector<double>& tspan,
+    const vector<double>& y0,
+    double mu,
+    double rel_tol = 1e-9,
+    double abs_tol = 1e-9,
+    double hmax = 10.0,
+    double hmin = 0.001
+) {
+    Result result;
+    double t = tspan[0];
+    double t_end = tspan.back();
+    double h = 0.01; // Initial step size
+    vector<double> y = y0;
 
-for (size_t i = 0; i < results.size(); ++i) {
-std::cout << std::fixed << std::setprecision(2);
-std::cout << std::setw(8) << t_gauss_lobatto[i] << std::setw(12) << results[i][0] << std::setw(12) << results[i][1]
-<< std::setw(12) << results[i][2] << std::setw(12) << results[i][3] << std::setw(12) << results[i][4]
-<< std::setw(12) << results[i][5] << std::endl;
+    result.time.push_back(t);
+    result.values.push_back(y);
+
+    size_t tspan_index = 1;
+
+    while (t < t_end) {
+        if (tspan_index < tspan.size() && t + h > tspan[tspan_index]) {
+            h = tspan[tspan_index] - t;
+        }
+
+        vector<double> yp = ode(t, y, mu);
+        vector<double> y_pred(y.size()), y_corr(y.size()), yp_corr(y.size());
+
+        // Predictor step
+        for (size_t i = 0; i < y.size(); i++) {
+            y_pred[i] = y[i] + h * yp[i];
+        }
+
+        // Corrector step
+        for (int iter = 0; iter < 3; iter++) {
+            yp_corr = ode(t + h, y_pred, mu);
+            for (size_t i = 0; i < y.size(); i++) {
+                y_corr[i] = y[i] + h * (yp[i] + yp_corr[i]) / 2.0;
+            }
+            y_pred = y_corr;
+        }
+
+        // Error estimation
+        double err = 0.0;
+        for (size_t i = 0; i < y.size(); i++) {
+            double diff = fabs(y_corr[i] - y_pred[i]);
+            double scale = max(fabs(y[i]), abs_tol);
+            err = max(err, diff / scale);
+        }
+
+        if (err <= rel_tol) {
+            // Accept step
+            t += h;
+            y = y_corr;
+            result.time.push_back(t);
+            result.values.push_back(y);
+
+            if (tspan_index < tspan.size() && t == tspan[tspan_index]) {
+                tspan_index++;
+            }
+        }
+
+        // Adjust step size
+        if (err == 0) {
+            h = min(h * 2.0, hmax);
+        } else {
+            h = max(min(h * 0.9 * sqrt(rel_tol / err), hmax), hmin);
+        }
+
+        if (h < hmin) {
+            cerr << "Warning: Step size below minimum. Exiting loop." << endl;
+            break;
+        }
+    }
+
+    return result;
 }
-
-return 0;
-}
-*/
 
 
