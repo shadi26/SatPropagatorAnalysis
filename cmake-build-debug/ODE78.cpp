@@ -12,7 +12,7 @@
 
 // RK78 single step function
 std::tuple<double, std::vector<double>, double> rk78_step(
-    std::function<std::vector<double>(double, const std::vector<double>&)> ode_func,
+    std::function<std::vector<double>(double, const std::vector<double>&,double,double,double)> ode_func,
     double t,
     const std::vector<double>& y,
     double h,
@@ -21,12 +21,15 @@ std::tuple<double, std::vector<double>, double> rk78_step(
     const std::vector<double>& b,  // 8th-order weights
     const std::vector<double>& bh, // 7th-order weights
     const std::vector<double>& c,  // Time nodes (Gauss-Lobatto points)
-    const std::map<int, std::map<int, double>>& a  // Coupling coefficients (Butcher tableau)
+    const std::map<int, std::map<int, double>>& a,  // Coupling coefficients (Butcher tableau)
+    double A,
+    double m,
+    double C_D
 ) {
     // Initialize stages (k1 to k13)
     std::vector<std::vector<double>> k(13, std::vector<double>(y.size()));
 
-    k[0] = scalar_multiply(h, ode_func(t, y));
+    k[0] = scalar_multiply(h, ode_func(t, y,A,m,C_D));
 
     for (int i = 1; i < 13; ++i) {
         std::vector<double> y_temp = y;
@@ -39,7 +42,7 @@ std::tuple<double, std::vector<double>, double> rk78_step(
                 }
             }
         }
-        k[i] = scalar_multiply(h, ode_func(t + c[i + 1] * h, y_temp));
+        k[i] = scalar_multiply(h, ode_func(t + c[i + 1] * h, y_temp,A,m,C_D));
     }
 
     // Compute the 8th-order solution (y8) using the b coefficients
@@ -62,7 +65,7 @@ std::tuple<double, std::vector<double>, double> rk78_step(
 
 // RK78 integration function
 std::vector<std::vector<double>> ode78(
-    std::function<std::vector<double>(double, const std::vector<double>&)> ode_func,
+    std::function<std::vector<double>(double, const std::vector<double>&,double,double,double)> ode_func,
     const std::vector<double>& t_span,
     const std::vector<double>& y0,
     const std::vector<double>& b,  // 8th-order weights
@@ -70,7 +73,10 @@ std::vector<std::vector<double>> ode78(
     const std::vector<double>& c,  // Time nodes (Gauss-Lobatto points)
     const std::map<int, std::map<int, double>>& a,  // Coupling coefficients (Butcher tableau)
     double rtol = 1e-3,
-    double atol = 1e-6
+    double atol = 1e-6,
+    double A=4.0,
+    double m=2.4,
+    double C_D=2.2
 ) {
     std::vector<double> tout = {t_span[0]};
     std::vector<std::vector<double>> yout = {y0};
@@ -81,7 +87,7 @@ std::vector<std::vector<double>> ode78(
     for (size_t i = 1; i < t_span.size(); ++i) {
         double h = t_span[i] - t_span[i - 1];
         while (t < t_span[i]) {
-            auto [t_next, y_next, h_new] = rk78_step(ode_func, t, y, h, rtol, atol, b, bh, c, a);
+            auto [t_next, y_next, h_new] = rk78_step(ode_func, t, y, h, rtol, atol, b, bh, c, a,A,m,C_D);
             t = t_next;
             y = y_next;
             h = h_new;

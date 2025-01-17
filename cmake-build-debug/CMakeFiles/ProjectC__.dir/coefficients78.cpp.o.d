@@ -1,7 +1,7 @@
 CMakeFiles/ProjectC__.dir/coefficients78.cpp.o: \
- /home/shadi26/CLionProjects/SatPropagatorAnalysis/cmake-build-debug/coefficients78.cpp \
+ /home/shadi/CLionProjects/SatPropagatorAnalysis1/cmake-build-debug/coefficients78.cpp \
  /usr/include/stdc-predef.h \
- /home/shadi26/CLionProjects/SatPropagatorAnalysis/cmake-build-debug/coefficients78.h \
+ /home/shadi/CLionProjects/SatPropagatorAnalysis1/cmake-build-debug/coefficients78.h \
  /usr/include/c++/13/map /usr/include/c++/13/bits/requires_hosted.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/c++config.h \
  /usr/include/x86_64-linux-gnu/c++/13/bits/os_defines.h \

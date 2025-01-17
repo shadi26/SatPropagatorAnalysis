@@ -1,4 +1,4 @@
-# Install script for directory: /home/shadi26/CLionProjects/SatPropagatorAnalysis
+# Install script for directory: /home/shadi/CLionProjects/SatPropagatorAnalysis1
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -57,6 +57,6 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-  file(WRITE "/home/shadi26/CLionProjects/SatPropagatorAnalysis/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
+  file(WRITE "/home/shadi/CLionProjects/SatPropagatorAnalysis1/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

@@ -11,33 +11,38 @@
 #endif
 
 
-// 4th order Runge-Kutta method (RK4)
+// 4th order Runge-Kutta method (RK4) updated to use a_c_func
 std::vector<std::vector<double>> rk4(
-    std::vector<double>(*odefun)(double, const std::vector<double>&),
-    const std::vector<double>& t_gauss_lobatto, 
-    const std::vector<double>& y0
+    std::vector<double>(*odefun)(double, const std::vector<double>&, double, double, double), // Updated signature
+    const std::vector<double>& t_gauss_lobatto,
+    const std::vector<double>& y0,
+    double A,  // Cross-sectional area
+    double m,  // Satellite mass
+    double C_D // Drag coefficient
 ) {
-    std::vector<std::vector<double>> yout(t_gauss_lobatto.size(), std::vector<double>(y0.size()));
+    std::vector<double> tout = t_gauss_lobatto;
+    std::vector<std::vector<double>> yout(tout.size(), std::vector<double>(y0.size()));
+
+    // Initialize the first value of yout with the initial condition
     std::vector<double> y = y0;
     yout[0] = y;
 
-    // Perform the integration using RK4
-    for (size_t i = 1; i < t_gauss_lobatto.size(); ++i) {
-        double h = t_gauss_lobatto[i] - t_gauss_lobatto[i - 1];
+    // Perform the integration using the 4th order Runge-Kutta method
+    for (size_t i = 1; i < tout.size(); ++i) {
+        double h = tout[i] - tout[i - 1];
 
-        std::vector<double> k1 = odefun(t_gauss_lobatto[i - 1], y);
-        std::vector<double> k2 = odefun(t_gauss_lobatto[i - 1] + h / 2.0, vectorAdd(y, scalarMultiply(k1, h / 2.0)));
-        std::vector<double> k3 = odefun(t_gauss_lobatto[i - 1] + h / 2.0, vectorAdd(y, scalarMultiply(k2, h / 2.0)));
-        std::vector<double> k4 = odefun(t_gauss_lobatto[i - 1] + h, vectorAdd(y, scalarMultiply(k3, h)));
+        std::vector<double> k1 = odefun(tout[i - 1], y,A,m,C_D);
+        std::vector<double> k2 = odefun(tout[i - 1] + h / 2, y + (h / 2) * k1 , A,m,C_D);
+        std::vector<double> k3 = odefun(tout[i - 1] + h / 2, y + (h / 2) * k2 , A,m,C_D);
+        std::vector<double> k4 = odefun(tout[i - 1] + h, y + h * k3 , A,m,C_D);
 
-        for (size_t j = 0; j < y.size(); ++j) {
-            y[j] += h * (k1[j] + 2.0 * k2[j] + 2.0 * k3[j] + k4[j]) / 6.0;
-        }
+        y = y + (h / 6) * (k1 + 2 * k2 + 2 * k3 + k4);
         yout[i] = y;
     }
 
     return yout;
 }
+
 
 /*
 int main() {

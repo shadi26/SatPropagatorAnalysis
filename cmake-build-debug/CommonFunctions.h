@@ -6,8 +6,13 @@
 #include <cmath>
 #include <string> // Include this to use std::string
 #include <tuple>  // Include this to use std::tuple
+#include <array>
 
-const double mu = 398600.0;  // Standard gravitational parameter for Earth
+const double mu = 398600.4418;  // Standard gravitational parameter for Earth
+// Constants
+extern const double J2;
+extern const double R_E;
+extern const double MU;
 
 // Function to calculate the norm of a vector
 double vectorNorm(const std::vector<double>& vec);
@@ -59,7 +64,15 @@ double atmospheric_density(double altitude);
 // Advanced satellite dynamics model
 std::vector<double> a_c_func(double t, const std::vector<double>& y, double A, double m, double C_D = 2.2);
 
+std::vector<double> a_c_func_new(double t, const std::vector<double>& y,double mu, double A, double m, double C_D );
 // Satellite parameter retrieval
 std::tuple<double, double, double> get_satellite_params(const std::string& sat_name);
+
+// Function to calculate the norm of a vector
+double vectorNorm(const std::array<double, 3>& vec);
+
+// Atmospheric density model based on altitude
+double atmosphericDensity(double altitude);
+
 
 #endif // SATELLITE_UTILS_H

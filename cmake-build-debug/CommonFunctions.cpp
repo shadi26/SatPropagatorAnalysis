@@ -3,6 +3,14 @@
 #include <cmath>
 #include <numeric>
 #include <stdexcept>
+#include <array>
+#include <vector>
+#include <iostream>
+
+// Constants
+const double J2 = 1.08263e-3;       // Earth's J2 coefficient
+const double R_E = 6378.137;        // Earth's radius in km
+const double MU = 398600.4418;      // Earth's gravitational parameter (km^3/s^2)
 
 double vectorNorm(const std::vector<double>& vec) {
     double sum = 0;
@@ -48,17 +56,15 @@ std::vector<double> satelliteMotion(double t, const std::vector<double>& y) {
 
 std::vector<double> gaussLobattoPoints(int n, double a, double b) {
     std::vector<double> points(n);
-
     for (int i = 0; i < n; ++i) {
-        points[i] = -std::cos(M_PI * i / (n - 1));
+        double theta = M_PI * i / (n - 1);
+        points[i] = -cos(theta);
     }
-
-    std::vector<double> scaled_points(n);
+    // Scale points to the interval [a, b]
     for (int i = 0; i < n; ++i) {
-        scaled_points[i] = 0.5 * (b - a) * (points[i] + 1) + a;
+        points[i] = 0.5 * (b - a) * (points[i] + 1) + a;
     }
-
-    return scaled_points;
+    return points;
 }
 
 // Overload the + operator for vector addition (vector + vector)
@@ -258,53 +264,115 @@ double atmospheric_density(double altitude) {
     return altitude_data.back().rho0;
 }
 
-// Function to calculate satellite dynamics
-std::vector<double> a_c_func(
-        double t, const std::vector<double>& y, double A, double m, double C_D ) {
+std::vector<double> a_c_func(double t, const std::vector<double>& y,double A,double m,double C_D) {
 
-    const double J2 = 1.08263e-3;
+    std::vector<double> r(y.begin(), y.begin() + 3);  // Position vector [x, y, z]
+    std::vector<double> v(y.begin() + 3, y.end());    // Velocity vector [v_x, v_y, v_z]
+
     const double R_E = 6378.137;
-    const double mu = 398600.4418;
-
-    std::vector<double> r(y.begin(), y.begin() + 3);
-    std::vector<double> v(y.begin() + 3, y.end());
 
     double r_norm = std::sqrt(r[0]*r[0] + r[1]*r[1] + r[2]*r[2]);
-    double x = r[0], y_pos = r[1], z = r[2];
-
-    double factor = (3.0 / 2.0) * J2 * (R_E * R_E) / std::pow(r_norm, 5);
-    double z2_r2 = std::pow(z / r_norm, 2);
-
-    double a_c_x = factor * x * (1 - 5 * z2_r2);
-    double a_c_y = factor * y_pos * (1 - 5 * z2_r2);
-    double a_c_z = factor * z * (3 - 5 * z2_r2);
-
-    std::vector<double> a_c = {a_c_x, a_c_y, a_c_z};
-
     double altitude = r_norm - R_E;
     double rho = atmospheric_density(altitude);
 
-    double v_rel_norm = std::sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-    double drag_factor = -0.5 * C_D * A / m * rho;
-    std::vector<double> a_d = {
-            drag_factor * v_rel_norm * v[0],
-            drag_factor * v_rel_norm * v[1],
-            drag_factor * v_rel_norm * v[2]
-    };
+    double x = r[0], y_pos = r[1], z = r[2];  // Decompose the position vector
 
-    std::vector<double> a_g = {
-            (-mu / std::pow(r_norm, 3)) * r[0],
-            (-mu / std::pow(r_norm, 3)) * r[1],
-            (-mu / std::pow(r_norm, 3)) * r[2]
-    };
+    // J2 acceleration components
+    double factor = -(3.0 / 2.0) * J2 * mu * (R_E * R_E) / pow(r_norm, 5);
+    double z2_r2 = (z / r_norm) * (z / r_norm);  // (z / r)^2 term
 
-    std::vector<double> total_acceleration = {
-            a_g[0] + a_c[0] + a_d[0],
-            a_g[1] + a_c[1] + a_d[1],
-            a_g[2] + a_c[2] + a_d[2]
-    };
 
-    std::vector<double> dy = {v[0], v[1], v[2], total_acceleration[0], total_acceleration[1], total_acceleration[2]};
+    std::vector<double> a_c(3);
+    a_c[0] = factor * x * (1 - 5 * z2_r2);
+    a_c[1] = factor * y_pos * (1 - 5 * z2_r2);
+    a_c[2] = factor * z * (3 - 5 * z2_r2);
+
+    // Drag acceleration components
+    double v_rel_norm = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);  // Relative velocity magnitude
+    double drag_factor = -0.5 * C_D * A / m * rho;  // Use constant rho
+    std::vector<double> a_d(3);
+    a_d[0] = drag_factor * v_rel_norm * v[0];
+    a_d[1] = drag_factor * v_rel_norm * v[1];
+    a_d[2] = drag_factor * v_rel_norm * v[2];
+
+    // Gravity acceleration components
+    std::vector<double> a_g(3);
+    a_g[0] = (-mu / pow(r_norm, 3)) * x;
+    a_g[1] = (-mu / pow(r_norm, 3)) * y_pos;
+    a_g[2] = (-mu / pow(r_norm, 3)) * z;
+
+    // Total acceleration
+    std::vector<double> total_acceleration(3);
+    total_acceleration[0] = a_g[0] + a_c[0] + a_d[0];
+    total_acceleration[1] = a_g[1] + a_c[1] + a_d[1];
+    total_acceleration[2] = a_g[2] + a_c[2] + a_d[2];
+
+    // Derivatives
+    std::vector<double> dy(6);
+    dy[0] = v[0];  // dx/dt
+    dy[1] = v[1];  // dy/dt
+    dy[2] = v[2];  // dz/dt
+    dy[3] = total_acceleration[0];  // dv_x/dt
+    dy[4] = total_acceleration[1];  // dv_y/dt
+    dy[5] = total_acceleration[2];  // dv_z/dt
+
+    return dy;
+}
+
+// Function to calculate satellite dynamics
+std::vector<double> a_c_func_new(
+        double t, const std::vector<double>& y,double mu, double A, double m, double C_D ) {
+
+    std::vector<double> r(y.begin(), y.begin() + 3);  // Position vector [x, y, z]
+    std::vector<double> v(y.begin() + 3, y.end());    // Velocity vector [v_x, v_y, v_z]
+
+    mu = 398600.4418;
+    const double R_E = 6378.137;
+
+    double r_norm = std::sqrt(r[0]*r[0] + r[1]*r[1] + r[2]*r[2]);
+    double altitude = r_norm - R_E;
+    double rho = atmospheric_density(altitude);
+
+
+    double x = r[0], y_pos = r[1], z = r[2];  // Decompose the position vector
+
+    // J2 acceleration components
+    double factor = -(3.0 / 2.0) * J2 * mu * (R_E * R_E) / pow(r_norm, 5);
+    double z2_r2 = (z / r_norm) * (z / r_norm);  // (z / r)^2 term
+
+    std::vector<double> a_c(3);
+    a_c[0] = factor * x * (1 - 5 * z2_r2);
+    a_c[1] = factor * y_pos * (1 - 5 * z2_r2);
+    a_c[2] = factor * z * (3 - 5 * z2_r2);
+
+    // Drag acceleration components
+    double v_rel_norm = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);  // Relative velocity magnitude
+    double drag_factor = -0.5 * C_D * A / m * rho;  // Use constant rho
+    std::vector<double> a_d(3);
+    a_d[0] = drag_factor * v_rel_norm * v[0];
+    a_d[1] = drag_factor * v_rel_norm * v[1];
+    a_d[2] = drag_factor * v_rel_norm * v[2];
+
+    // Gravity acceleration components
+    std::vector<double> a_g(3);
+    a_g[0] = (-mu / pow(r_norm, 3)) * x;
+    a_g[1] = (-mu / pow(r_norm, 3)) * y_pos;
+    a_g[2] = (-mu / pow(r_norm, 3)) * z;
+
+    // Total acceleration
+    std::vector<double> total_acceleration(3);
+    total_acceleration[0] = a_g[0] + a_c[0] + a_d[0];
+    total_acceleration[1] = a_g[1] + a_c[1] + a_d[1];
+    total_acceleration[2] = a_g[2] + a_c[2] + a_d[2];
+
+    // Derivatives
+    std::vector<double> dy(6);
+    dy[0] = v[0];  // dx/dt
+    dy[1] = v[1];  // dy/dt
+    dy[2] = v[2];  // dz/dt
+    dy[3] = total_acceleration[0];  // dv_x/dt
+    dy[4] = total_acceleration[1];  // dv_y/dt
+    dy[5] = total_acceleration[2];  // dv_z/dt
 
     return dy;
 }
@@ -326,4 +394,40 @@ std::tuple<double, double, double> get_satellite_params(const std::string& sat_n
 
     return {0.0, 0.0, 0.0}; // Default if not found
 }
+
+
+
+// Helper function to calculate the norm of a vector
+double vectorNorm(const std::array<double, 3>& vec) {
+    return sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]);
+}
+
+// Atmospheric density model based on altitude
+double atmosphericDensity(double altitude) {
+    std::vector<std::tuple<double, double, double>> altitude_data = {
+        {0, 1.225, 7.249}, {25, 3.899e-2, 6.349}, {30, 1.774e-2, 6.682},
+        {40, 3.972e-3, 7.554}, {50, 1.057e-3, 8.382}, {60, 3.206e-4, 7.714},
+        {70, 8.77e-5, 6.549}, {80, 1.905e-5, 5.799}, {90, 3.396e-6, 5.382},
+        {100, 5.297e-7, 5.877}, {110, 9.661e-8, 7.263}, {120, 2.438e-8, 9.473},
+        {130, 8.484e-9, 12.636}, {140, 3.845e-9, 16.149}, {150, 2.070e-9, 22.523},
+        {180, 5.464e-10, 29.740}, {200, 2.789e-10, 37.105}, {250, 7.248e-11, 45.546},
+        {300, 2.418e-11, 53.628}, {350, 9.518e-12, 53.298}, {400, 3.725e-12, 58.515},
+        {450, 1.585e-12, 60.828}, {500, 6.967e-13, 63.822}, {600, 1.454e-13, 71.835},
+        {700, 3.614e-14, 88.667}, {800, 1.170e-14, 124.64}, {900, 5.245e-15, 181.05},
+        {1000, 3.019e-15, 268.00}
+    };
+
+    for (size_t i = 0; i < altitude_data.size() - 1; ++i) {
+        auto [h0, rho0, H] = altitude_data[i];
+        auto [h1, rho1, _] = altitude_data[i + 1];
+
+        if (altitude >= h0 && altitude < h1) {
+            return rho0 * exp(-(altitude - h0) / H);
+        }
+    }
+    return std::get<1>(altitude_data.back());
+}
+
+
+
 
